@@ -4,19 +4,22 @@
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   </head>
+
   <body>
     <a-scene
       mindar-image="imageTargetSrc: targets.mind;"
       color-space="sRGB"
       renderer="colorManagement: true; physicallyCorrectLights: false"
       vr-mode-ui="enabled: false"
-      device-orientation-permission-ui="enabled: false">
-
+      device-orientation-permission-ui="enabled: false"
+      embedded
+    >
       <a-assets>
         <img id="card" src="6653.jpg" />
-        <a-asset-item id="model" src="./hornet.glb"></a-asset-item>
+        <a-asset-item id="model" src="./phoenix_bird.glb"></a-asset-item>
 
-        <video id="vid"
+        <video
+          id="vid"
           src="./hey.mp4"
           preload="auto"
           muted
@@ -24,63 +27,69 @@
           loop
           playsinline
           webkit-playsinline
-          crossorigin="anonymous"></video>
+          crossorigin="anonymous"
+        ></video>
       </a-assets>
 
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
       <a-entity mindar-image-target="targetIndex: 0">
+        <!-- Image target plane -->
         <a-plane src="#card" position="0 0 0" height="0.552" width="1"></a-plane>
 
-        <!-- Larger Animated GLB model -->
+        <!-- Phoenix Bird 3D model -->
         <a-gltf-model
           id="animatedModel"
           src="#model"
-          position="0 0 0.15"
+          position="0 0 0.25"
           rotation="0 180 0"
-          scale="0.3 0.3 0.3"
-          animation-mixer="clip: HORNET_RIGAction; loop: repeat; timeScale: 0;">
-        </a-gltf-model>
+          scale="0.35 0.35 0.35"
+          animation-mixer="clip: Take 001; loop: repeat;"
+        ></a-gltf-model>
 
-        <!-- Video plane -->
-        <a-video src="#vid" width="1" height="0.56" position="0 0 0.06"></a-video>
+        <!-- Optional video overlay -->
+        <a-video
+          src="#vid"
+          width="1"
+          height="0.56"
+          position="0 0 0.08"
+        ></a-video>
       </a-entity>
     </a-scene>
 
     <script>
-      const video  = document.getElementById('vid');
-      const scene  = document.querySelector('a-scene');
-      const anchor = document.querySelector('[mindar-image-target]');
-      const model  = document.getElementById('animatedModel');
+      const video = document.getElementById("vid");
+      const scene = document.querySelector("a-scene");
+      const anchor = document.querySelector("[mindar-image-target]");
+      const model = document.getElementById("animatedModel");
 
-      scene.addEventListener('arReady', () => { video.play().catch(()=>{}); });
-
-      // Wait a bit for model to finish loading before controlling animation
-      model.addEventListener('model-loaded', () => {
-        console.log("✅ Model loaded, ready for animation");
+      // Play when AR is ready
+      scene.addEventListener("arReady", () => {
+        video.play().catch(() => {});
       });
 
-      // Play both when AR target found
-      anchor.addEventListener('targetFound', () => {
-        console.log("🎯 Target found");
-        video.play().catch(()=>{});
-        // small delay ensures mixer is initialized
-        setTimeout(() => {
-          model.setAttribute('animation-mixer', 'clip: HORNET_RIGAction; loop: repeat; timeScale: 1;');
-        }, 500);
+      // When image is found
+      anchor.addEventListener("targetFound", () => {
+        video.play().catch(() => {});
+        model.setAttribute(
+          "animation-mixer",
+          "clip: Take 001; loop: repeat; timeScale: 1;"
+        );
       });
 
-      // Pause both when target lost
-      anchor.addEventListener('targetLost', () => {
-        console.log("❌ Target lost");
+      // When image is lost
+      anchor.addEventListener("targetLost", () => {
         video.pause();
-        model.setAttribute('animation-mixer', 'clip: HORNET_RIGAction; loop: repeat; timeScale: 0;');
+        model.setAttribute(
+          "animation-mixer",
+          "clip: Take 001; loop: repeat; timeScale: 0;"
+        );
       });
 
-      // Enable sound on click
-      document.body.addEventListener('click', () => {
+      // Unmute video when user taps anywhere
+      document.body.addEventListener("click", () => {
         video.muted = false;
-        video.play().catch(()=>{});
+        video.play().catch(() => {});
       });
     </script>
   </body>
