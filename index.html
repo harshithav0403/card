@@ -12,49 +12,110 @@
       renderer="colorManagement: true; physicallyCorrectLights: false"
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false"
-      embedded
-    >
+      embedded>
+
       <a-assets>
         <img id="card" src="6653.jpg" />
+        <!-- your phoenix model is next to index.html -->
         <a-asset-item id="model" src="./phoenix_bird.glb"></a-asset-item>
+
+        <video id="vid"
+          src="./hey.mp4"
+          preload="auto"
+          muted
+          autoplay
+          loop
+          playsinline
+          webkit-playsinline
+          crossorigin="anonymous"></video>
       </a-assets>
 
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
+      <!-- a little ambient + directional light so models aren’t black -->
+      <a-entity light="type: ambient; intensity: 1.2"></a-entity>
+      <a-entity light="type: directional; intensity: 0.6" position="0 1 1"></a-entity>
+
       <a-entity mindar-image-target="targetIndex: 0">
         <a-plane src="#card" position="0 0 0" height="0.552" width="1"></a-plane>
 
-        <a-gltf-model
-          id="bird"
-          src="#model"
-          position="0 0.3 0.3"
-          rotation="0 180 0"
-          scale="0.8 0.8 0.8"
-          animation-mixer="clip: Take 001; loop: repeat;"
-        ></a-gltf-model>
+        <!-- wrapper we can position/scale; model is the child -->
+        <a-entity id="modelWrap" position="0 0.25 0.25" rotation="0 180 0" scale="1 1 1">
+          <a-gltf-model
+            id="bird"
+            src="#model"
+            animation-mixer="clip: *; loop: repeat;"
+          ></a-gltf-model>
+        </a-entity>
+
+        <a-video src="#vid" width="1" height="0.56" position="0 0 0.06"></a-video>
       </a-entity>
     </a-scene>
 
     <script>
-      const model = document.getElementById("bird");
-      const anchor = document.querySelector("[mindar-image-target]");
+      const scene  = document.querySelector('a-scene');
+      const anchor = document.querySelector('[mindar-image-target]');
+      const wrap   = document.getElementById('modelWrap');
+      const model  = document.getElementById('bird');
+      const video  = document.getElementById('vid');
 
-      model.addEventListener("model-loaded", () => {
-        console.log("✅ Model loaded!");
+      // Try to play video when AR is ready (muted autoplay)
+      scene.addEventListener('arReady', () => { video.play().catch(() => {}); });
+
+      // Play/pause video + animation with tracking
+      anchor.addEventListener('targetFound', () => {
+        video.play().catch(() => {});
+        model.setAttribute('animation-mixer', 'clip: *; loop: repeat; timeScale: 1;');
+      });
+      anchor.addEventListener('targetLost', () => {
+        video.pause();
+        model.setAttribute('animation-mixer', 'clip: *; loop: repeat; timeScale: 0;');
       });
 
-      model.addEventListener("model-error", (e) => {
-        console.error("❌ Model failed:", e);
+      // Unmute video on first tap (for iOS/Chrome mobile policies)
+      document.body.addEventListener('click', () => {
+        video.muted = false;
+        video.play().catch(() => {});
       });
 
-      anchor.addEventListener("targetFound", () => {
-        console.log("🎯 Target found, playing animation!");
-        model.setAttribute("animation-mixer", "clip: Take 001; loop: repeat;");
+      // Auto-center and auto-fit the model when it finishes loading
+      model.addEventListener('model-loaded', () => {
+        console.log('✅ Model loaded!');
+        const three = AFRAME.THREE;            // use A-Frame’s THREE
+        const obj   = model.getObject3D('mesh');
+        if (!obj) return;
+
+        // Make materials double-sided (some assets need it) and ensure visible
+        obj.traverse(n => {
+          if (n.isMesh) {
+            n.material.side = three.DoubleSide;
+            n.material.needsUpdate = true;
+          }
+        });
+
+        // Compute bounding box to recentre and scale
+        const box   = new three.Box3().setFromObject(obj);
+        const size  = new three.Vector3();  box.getSize(size);
+        const center= new three.Vector3();  box.getCenter(center);
+
+        // Recentre geometry around local origin so it sits nicely on wrapper origin
+        obj.position.sub(center);
+
+        // Fit to marker: target width about 0.8 (slightly smaller than plane width=1)
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const target = 0.8;
+        const s = (maxDim > 0) ? (target / maxDim) : 1.0;
+        wrap.setAttribute('scale', `${s} ${s} ${s}`);
+
+        // Lift it a bit above the plane
+        wrap.setAttribute('position', '0 0.28 0.25');
+
+        // Make sure animation is running on load
+        model.setAttribute('animation-mixer', 'clip: *; loop: repeat; timeScale: 1;');
       });
 
-      anchor.addEventListener("targetLost", () => {
-        console.log("💨 Target lost, pausing animation!");
-        model.setAttribute("animation-mixer", "clip: Take 001; loop: repeat; timeScale: 0;");
+      model.addEventListener('model-error', (e) => {
+        console.error('❌ Model load error:', e);
       });
     </script>
   </body>
