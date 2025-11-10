@@ -47,6 +47,12 @@
   // play/pause with tracking (optional but nice)
   anchor.addEventListener('targetFound', () => { video.play().catch(()=>{}); });
   anchor.addEventListener('targetLost',  () => { video.pause(); });
+
+  document.body.addEventListener('click', () => { 
+  video.muted = false; 
+  video.play().catch(()=>{}); 
+});
+
 </script>
 
   </body>
