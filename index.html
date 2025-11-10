@@ -1,41 +1,91 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <title>MindAR v1.1.5 — Image → 3D</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>MindAR (Three.js) — Image → 3D</title>
 
-    <!-- A-Frame then MindAR -->
-    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.5/dist/mindar-image.prod.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.5/dist/mindar-image-aframe.prod.js"></script>
+    <!-- MindAR Three adapter (UMD attaches to window.MINDAR) -->
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.5/dist/mindar-image-three.prod.js"></script>
 
     <style>
-      body { margin:0; background:#000; overflow:hidden; }
-      a-scene { position:fixed; inset:0; }
+      html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+      /* MindAR injects a canvas into the container. We use the whole page. */
+      body > canvas { display: block; }
+      #hint {
+        position: fixed; left: 12px; bottom: 12px; z-index: 9999;
+        color: #cfe7ff; background: rgba(0,0,0,.55);
+        padding: 8px 12px; border-radius: 10px; font: 14px system-ui;
+      }
     </style>
   </head>
-
   <body>
-    <a-scene
-      mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; uiScanning: true; uiError: true;"
-      color-space="sRGB"
-      renderer="colorManagement: true, physicallyCorrectLights: true"
-      vr-mode-ui="enabled: false"
-      device-orientation-permission-ui="enabled: false"
-      embedded>
+    <div id="hint">Loading… allow camera, then point at your picture.</div>
 
-      <a-assets>
-        <img id="card" src="./6653.jpg" crossorigin="anonymous" />
-        <a-asset-item id="hornetModel" src="./hornet.glb" crossorigin="anonymous"></a-asset-item>
-      </a-assets>
+    <!-- Use ES modules for Three + GLTFLoader -->
+    <script type="module">
+      import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.module.js';
+      import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/loaders/GLTFLoader.js';
 
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+      const log = (m)=>{ const el = document.getElementById('hint'); if (el) el.textContent = m; console.log('[AR]', m); };
 
-      <a-entity mindar-image-target="targetIndex: 0">
-        <a-plane src="#card" position="0 0 0" width="1" height="0.7"></a-plane>
-        <a-gltf-model src="#hornetModel" position="0 0 0.1" scale="0.05 0.05 0.05"></a-gltf-model>
-      </a-entity>
-    </a-scene>
+      // MindAR + Three setup (request 1280x720 so the view fills 16:9 screens)
+      const mindarThree = new window.MINDAR.IMAGE.MindARThree({
+        container: document.body,
+        imageTargetSrc: './targets.mind',
+        uiLoading: true, uiScanning: true, uiError: true,
+        maxTrack: 1,
+        video: { facingMode: 'environment', width: 1280, height: 720 } // 16:9
+      });
+
+      const { renderer, scene, camera } = mindarThree;
+
+      // Basic lighting
+      scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+      const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+      dir.position.set(0, 1, 1);
+      scene.add(dir);
+
+      // Anchor for target index 0
+      const anchor = mindarThree.addAnchor(0);
+
+      // Optional: a quick plane to visualize the target area (comment out if not needed)
+      const planeGeo = new THREE.PlaneGeometry(1, 0.7);
+      const planeMat = new THREE.MeshBasicMaterial({ color: 0x11ff11, opacity: 0.25, transparent: true });
+      const plane = new THREE.Mesh(planeGeo, planeMat);
+      anchor.group.add(plane);
+
+      // Load your GLB model
+      const loader = new GLTFLoader();
+      loader.load('./hornet.glb', (gltf) => {
+        const model = gltf.scene || gltf.scenes[0];
+        model.scale.set(0.05, 0.05, 0.05);     // tweak if model looks big/small
+        model.position.set(0, 0, 0.03);        // just above the plane
+        model.rotation.set(0, 0, 0);
+        anchor.group.add(model);
+        log('Model loaded. Point at your target image.');
+      }, undefined, (err) => {
+        log('❌ Failed to load model: ' + (err?.message || err));
+      });
+
+      // Helpful events
+      anchor.onTargetFound = () => log('🎯 targetFound');
+      anchor.onTargetLost  = () => log('👋 targetLost');
+
+      // Start AR
+      try {
+        await mindarThree.start();
+        log('✅ AR ready — scanning…');
+        renderer.setAnimationLoop(() => {
+          renderer.render(scene, camera);
+        });
+      } catch (e) {
+        log('❌ Could not start AR: ' + (e?.message || e));
+      }
+
+      // Surface any hidden errors to console
+      window.addEventListener('error', e => console.warn('window error:', e.message || e));
+      window.addEventListener('unhandledrejection', e => console.warn('promise rejection:', e.reason));
+    </script>
   </body>
 </html>
