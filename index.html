@@ -1,29 +1,27 @@
 <!doctype html>
 <html>
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>MindAR (Three.js) — Image → 3D</title>
-
-    <!-- MindAR three adapter (v1.1.5) -->
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.5/dist/mindar-image-three.prod.js"></script>
-
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+    <title>MindAR (Three.js modules) — Image → 3D</title>
     <style>
       html,body{margin:0;height:100%;background:#000;overflow:hidden}
       body>canvas{display:block}
-      #ui{position:fixed;left:12px;bottom:12px;z-index:9999;color:#cfe7ff;
-          background:rgba(0,0,0,.55);padding:8px 12px;border-radius:10px;
-          font:14px system-ui, -apple-system, Segoe UI, Roboto;white-space:pre-line}
-      #btn{margin-left:8px;padding:6px 10px;border:1px solid #6aa8ff;border-radius:8px;
-           background:#012;border:none;color:#cfe7ff;cursor:pointer}
-      #btn:disabled{opacity:.6;cursor:default}
+      #ui{
+        position:fixed;left:12px;bottom:12px;z-index:9999;color:#cfe7ff;
+        background:rgba(0,0,0,.55);padding:8px 12px;border-radius:10px;
+        font:14px system-ui, -apple-system, Segoe UI, Roboto;white-space:pre-line
+      }
+      #btn{margin-left:8px;padding:6px 10px;border:1px solid #6aa8ff;border-radius:8px;background:#012;color:#cfe7ff}
+      #btn:disabled{opacity:.6}
     </style>
   </head>
   <body>
     <div id="ui">Loading… allow camera, then point at your picture. <button id="btn" style="display:none">Start AR</button></div>
 
+    <!-- PURE ES MODULES: MindAR module + Three r136 + GLTFLoader -->
     <script type="module">
-      // Use Three r136 (known-good with MindAR 1.1.5)
+      import { MindARThree } from 'https://cdn.jsdelivr.net/npm/mind-ar@1.1.5/dist/mindar-image-three.module.js';
       import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.136.0/build/three.module.js';
       import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.136.0/examples/jsm/loaders/GLTFLoader.js';
 
@@ -31,91 +29,80 @@
       const btn = document.getElementById('btn');
       const say = m => { ui.firstChild.textContent = m; console.log('[AR]', m); };
 
-      // Create once (container = body)
-      const mindarThree = new window.MINDAR.IMAGE.MindARThree({
+      // Construct MindAR Three (container = full page)
+      const mindar = new MindARThree({
         container: document.body,
         imageTargetSrc: './targets.mind',
         uiLoading: true, uiScanning: true, uiError: true,
-        maxTrack: 1
-        // we'll pass video constraints at start()
+        maxTrack: 1,
       });
-      const { renderer, scene, camera } = mindarThree;
+      const { renderer, scene, camera } = mindar;
 
-      // Lighting
+      // Lights
       scene.add(new THREE.AmbientLight(0xffffff, 0.9));
       const dir = new THREE.DirectionalLight(0xffffff, 0.8);
-      dir.position.set(0, 1, 1);
+      dir.position.set(0,1,1);
       scene.add(dir);
 
-      // Anchor
-      const anchor = mindarThree.addAnchor(0);
+      // Anchor at targetIndex 0
+      const anchor = mindar.addAnchor(0);
       anchor.onTargetFound = () => say('🎯 targetFound');
       anchor.onTargetLost  = () => say('👋 targetLost');
 
-      // Optional target plane (helps visualize)
+      // Optional plane to visualize target area
       const plane = new THREE.Mesh(
         new THREE.PlaneGeometry(1, 0.7),
-        new THREE.MeshBasicMaterial({color:0x11ff11, opacity:0.25, transparent:true})
+        new THREE.MeshBasicMaterial({ color:0x11ff11, opacity:0.22, transparent:true })
       );
       anchor.group.add(plane);
 
-      // Load your model
-      new GLTFLoader().load('./hornet.glb', gltf => {
-        const model = gltf.scene || gltf.scenes[0];
-        model.scale.set(0.05, 0.05, 0.05);
-        model.position.set(0, 0, 0.03);
-        anchor.group.add(model);
-        say('Model loaded. Starting camera…');
-      }, undefined, err => {
-        say('❌ Model load failed: '+(err?.message||err));
-      });
-
-      // Try a few camera options until one works
-      const attempts = [
-        { video: { facingMode: 'environment', width: 1280, height: 720 } },
-        { video: { facingMode: 'environment' } },
-        { video: { facingMode: 'user' } },
-        { } // let browser decide
-      ];
-
-      async function startWith(constraint){
+      // Start function (request 16:9, fallbacks handled by browser)
+      async function startAR() {
         say('Requesting camera…');
-        await mindarThree.start(constraint);
-        renderer.setAnimationLoop(()=>renderer.render(scene, camera));
+        await mindar.start({ video: { facingMode:'environment', width:1280, height:720 } });
+        renderer.setAnimationLoop(() => renderer.render(scene, camera));
         say('✅ AR ready — point at your picture.');
       }
 
-      async function startAuto(){
-        btn.style.display = 'none';
-        for (let i=0;i<attempts.length;i++){
-          try { await startWith(attempts[i]); return; }
-          catch(e){
-            console.warn('start attempt failed', attempts[i], e);
-            // If permission error, show button for user gesture retry
-            if (/denied|notallowed|permission|insecure/i.test(String(e?.message||e))) {
-              btn.style.display = 'inline-block';
-              say('Tap “Start AR”, then allow camera.');
-              return;
-            }
-          }
+      // Load your GLB AFTER AR has started (avoids blocking camera start)
+      async function loadModel() {
+        try {
+          const gltf = await new GLTFLoader().loadAsync('./hornet.glb');
+          const model = gltf.scene || gltf.scenes[0];
+          model.scale.set(0.05, 0.05, 0.05);
+          model.position.set(0, 0, 0.03);
+          anchor.group.add(model);
+          say('Model loaded. Point at your picture.');
+        } catch (e) {
+          say('❌ Model load failed: ' + (e?.message || e));
+          console.error(e);
         }
-        btn.style.display = 'inline-block';
-        say('Could not start camera automatically. Tap “Start AR”.');
       }
 
-      btn.addEventListener('click', async ()=>{
-        btn.disabled = true; say('Starting…');
-        try { await startAuto(); } finally { btn.disabled = false; }
+      // Try to autostart; if permission is required, show a button
+      (async () => {
+        try {
+          await startAR();
+          await loadModel();
+        } catch (e) {
+          console.warn('Auto-start failed:', e);
+          btn.style.display = 'inline-block';
+          say('Tap “Start AR”, then allow camera.');
+        }
+      })();
+
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        try {
+          await startAR();
+          await loadModel();
+        } finally {
+          btn.disabled = false;
+          btn.style.display = 'none';
+        }
       });
 
-      // Kick off
-      startAuto().catch(e=>{
-        console.warn(e);
-        btn.style.display = 'inline-block';
-        say('Tap “Start AR”, then allow camera.');
-      });
-
-      // Surface hidden errors
+      // Surface any hidden errors
       window.addEventListener('error', e => console.warn('window error:', e.message||e));
       window.addEventListener('unhandledrejection', e => console.warn('promise rejection:', e.reason));
     </script>
