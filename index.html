@@ -1,126 +1,84 @@
-<!doctype html>
 <html>
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>MindAR — Image → Model + Video</title>
-
-    <!-- A-Frame + MindAR -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-
-    <style>
-      html, body { margin:0; height:100%; background:#000; }
-      /* small helper chip to hint unmute (optional) */
-      #hint {
-        position: fixed; left: 12px; bottom: 12px; z-index: 9999;
-        background: rgba(0,0,0,.6); color:#fff; padding:8px 10px;
-        border-radius: 10px; font: 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto;
-        display:none;
-      }
-    </style>
   </head>
 
   <body>
-    <div id="hint">Tap once to unmute video 🔊</div>
-
     <a-scene
-      mindar-image="imageTargetSrc: targets.mind;"
-      renderer="colorManagement: true; physicallyCorrectLights: false"
+      mindar-image="imageTargetSrc: targets.mind; autoStart: true; uiScanning: false; uiLoading: false;"
+      color-space="sRGB"
+      renderer="colorManagement: true; physicallyCorrectLights: false; alpha: true; logarithmicDepthBuffer: true;"
+      embedded
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false"
-      embedded>
-      
+      background="color: transparent"
+      style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0;"
+    >
+
       <a-assets>
-        <!-- the image used on the plane, just for reference -->
+        <!-- Target image -->
         <img id="card" src="6653.jpg" />
 
-        <!-- your rigged GLB -->
+        <!-- Your 3D Model -->
         <a-asset-item id="model" src="hornet.glb"></a-asset-item>
 
-        <!-- the video (muted so autoplay is allowed everywhere) -->
+        <!-- Your Video -->
         <video id="vid"
-               src="hey.mp4"
-               preload="auto"
-               muted
-               autoplay
-               loop
-               playsinline
-               webkit-playsinline
-               crossorigin="anonymous"></video>
+          src="./hey.mp4"
+          preload="auto"
+          autoplay
+          loop
+          playsinline
+          webkit-playsinline
+          crossorigin="anonymous">
+        </video>
       </a-assets>
 
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <!-- anchor for target index 0 -->
-      <a-entity id="anchor" mindar-image-target="targetIndex: 0">
-        <!-- reference plane (your picture) -->
-        <a-plane src="#card" height="0.552" width="1" position="0 0 0"></a-plane>
+      <!-- AR Target Entity -->
+      <a-entity mindar-image-target="targetIndex: 0">
+        <!-- Plane showing your image -->
+        <a-plane src="#card" position="0 0 0" height="0.552" width="1"></a-plane>
 
-        <!-- your animated model, placed in front of the plane -->
-        <a-gltf-model id="m"
-                      src="#model"
-                      position="0 0 0.18"
-                      rotation="0 180 0"
-                      scale="0.35 0.35 0.35"
-                      animation-mixer="clip: HORNET RIGAction; loop: repeat; timeScale: 1">
-        </a-gltf-model>
+        <!-- Animated 3D Model -->
+        <a-gltf-model
+          id="animatedModel"
+          src="#model"
+          position="0 0 0.2"
+          rotation="0 0 0"
+          scale="0.01 0.01 0.01"
+          animation-mixer="clip: *; loop: repeat;"
+        ></a-gltf-model>
 
-        <!-- the video surface, slightly above the plane and below the model -->
-        <a-video id="vplane"
-                 src="#vid"
-                 width="1"
-                 height="0.56"
-                 position="0 0 0.06">
-        </a-video>
+        <!-- Video Plane -->
+        <a-video src="#vid" width="1" height="0.56" position="0 0 0.05"></a-video>
       </a-entity>
     </a-scene>
 
     <script>
-      const video   = document.getElementById('vid');
-      const anchor  = document.getElementById('anchor');
-      const modelEl = document.getElementById('m');
-      const hint    = document.getElementById('hint');
+      const video  = document.getElementById('vid');
+      const anchor = document.querySelector('[mindar-image-target]');
+      const model  = document.getElementById('animatedModel');
 
-      // --- Start/Stop on image tracking ---
+      // Play both when AR target found
       anchor.addEventListener('targetFound', () => {
-        // resume video & model
         video.play().catch(()=>{});
-        // resume animation-mixer by setting timeScale > 0
-        modelEl.setAttribute('animation-mixer', 'timeScale', 1);
+        model.setAttribute('animation-mixer', 'timeScale: 1');
       });
 
+      // Pause both when target lost
       anchor.addEventListener('targetLost', () => {
-        // pause video & model when tracking is lost
         video.pause();
-        modelEl.setAttribute('animation-mixer', 'timeScale', 0);
+        model.setAttribute('animation-mixer', 'timeScale: 0');
       });
 
-      // --- Unmute on first user tap (so sound can play) ---
-      // show a small hint for a few seconds
-      let hintTimer;
-      function showHint() {
-        hint.style.display = 'block';
-        clearTimeout(hintTimer);
-        hintTimer = setTimeout(() => hint.style.display = 'none', 4000);
-      }
-      showHint();
-
+      // Unmute and play video when user taps screen (required by browsers)
       document.body.addEventListener('click', () => {
-        if (video.muted) {
-          video.muted = false;
-          video.play().catch(()=>{});
-          hint.style.display = 'none';
-        }
-      }, { once: true });
-
-      // Optional: ensure the model's animation starts once loaded (in case the clip name varies)
-      modelEl.addEventListener('model-loaded', (e) => {
-        const clips = e.detail.model?.animations || [];
-        // If your file ever changes clip names, this will auto-play the first clip:
-        if (clips.length && !modelEl.getAttribute('animation-mixer')) {
-          modelEl.setAttribute('animation-mixer', `clip:${clips[0].name}; loop:repeat; timeScale:1`);
-        }
+        video.muted = false;
+        video.play().catch(()=>{});
       });
     </script>
   </body>
