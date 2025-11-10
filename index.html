@@ -12,7 +12,16 @@
 	
 	<a-asset-item id="model" src="hi/scene.gltf"></a-asset-item>
 
-	<video id="vid" src="./15042.mp4" autoplay loop playsinline crossorigin="anonymous"></video>
+	<video id="vid"
+       src="./15042.mp4"
+       preload="auto"
+       muted
+       autoplay
+       loop
+       playsinline
+       webkit-playsinline
+       crossorigin="anonymous"></video>
+
 
       </a-assets>
 
@@ -27,5 +36,18 @@
 
       </a-entity>
     </a-scene>
+	  <script>
+  const video  = document.getElementById('vid');
+  const scene  = document.querySelector('a-scene');
+  const anchor = document.querySelector('[mindar-image-target]');
+
+  // try playing as soon as AR boots (muted autoplay)
+  scene.addEventListener('arReady', () => { video.play().catch(()=>{}); });
+
+  // play/pause with tracking (optional but nice)
+  anchor.addEventListener('targetFound', () => { video.play().catch(()=>{}); });
+  anchor.addEventListener('targetLost',  () => { video.pause(); });
+</script>
+
   </body>
 </html>
