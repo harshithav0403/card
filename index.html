@@ -4,6 +4,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <style>
+      html, body { margin:0; height:100%; overflow:hidden; background:#000; }
+      a-scene { position:fixed; inset:0; }
+    </style>
   </head>
   <body>
     <a-scene
@@ -15,44 +19,41 @@
       embedded>
 
       <a-assets>
-        <!-- your target picture (just for alignment; kept invisible below) -->
         <img id="card" src="6653.jpg" />
-        <!-- your GLB -->
         <a-asset-item id="model" src="./phoenix_bird.glb"></a-asset-item>
       </a-assets>
 
-      <!-- Camera rig: slight zoom-out (z=0.12) and a tiny downward tilt (-6°) -->
-      <a-entity id="rig" position="0 0 0.12" rotation="-6 0 0">
-        <a-camera id="camera" look-controls="enabled: false"></a-camera>
-      </a-entity>
+      <!-- Standard AR camera -->
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <!-- simple lights so PBR models look correct -->
+      <!-- simple lighting -->
       <a-entity light="type: ambient; intensity: 1.0"></a-entity>
       <a-entity light="type: directional; intensity: 0.8" position="0 1 1"></a-entity>
 
-      <!-- Anchor on your first target -->
       <a-entity mindar-image-target="targetIndex: 0">
-        <!-- invisible plane (kept transparent so only the model shows) -->
-        <a-plane src="#card"
-                 position="0 0 0"
-                 width="1" height="0.552"
-                 material="opacity:0; transparent:true"></a-plane>
+        <!-- invisible alignment plane -->
+        <a-plane
+          src="#card"
+          position="0 0 0"
+          width="1" height="0.552"
+          material="transparent:true; opacity:0">
+        </a-plane>
 
-        <!-- Model: brought slightly down (y = -0.08) and a bit forward (z = 0.06) -->
+        <!-- phoenix model (a little smaller, lifted off the card) -->
         <a-gltf-model
           id="bird"
           src="#model"
-          position="0 -0.08 0.06"
+          position="0 -0.06 0.08"
           rotation="0 180 0"
-          scale="0.00015 0.00015 0.00015">
+          scale="0.006 0.006 0.006">
         </a-gltf-model>
       </a-entity>
     </a-scene>
 
     <script>
-      document.getElementById('bird').addEventListener('model-loaded', () => {
-        console.log('Model loaded!');
-      });
+      const bird = document.getElementById('bird');
+      bird.addEventListener('model-loaded', () => console.log('✅ Model loaded'));
+      bird.addEventListener('model-error',  e => console.error('❌ Model error', e));
     </script>
   </body>
 </html>
