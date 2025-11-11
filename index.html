@@ -15,40 +15,43 @@
       embedded>
 
       <a-assets>
+        <!-- your target picture (just for alignment; kept invisible below) -->
         <img id="card" src="6653.jpg" />
+        <!-- your GLB -->
         <a-asset-item id="model" src="./phoenix_bird.glb"></a-asset-item>
       </a-assets>
 
-      <!-- Camera rig: slight zoom-out and downward tilt -->
+      <!-- Camera rig: slight zoom-out (z=0.12) and a tiny downward tilt (-6°) -->
       <a-entity id="rig" position="0 0 0.12" rotation="-6 0 0">
         <a-camera id="camera" look-controls="enabled: false"></a-camera>
       </a-entity>
 
-      <!-- simple lighting -->
+      <!-- simple lights so PBR models look correct -->
       <a-entity light="type: ambient; intensity: 1.0"></a-entity>
       <a-entity light="type: directional; intensity: 0.8" position="0 1 1"></a-entity>
 
+      <!-- Anchor on your first target -->
       <a-entity mindar-image-target="targetIndex: 0">
-        <!-- invisible card plane -->
+        <!-- invisible plane (kept transparent so only the model shows) -->
         <a-plane src="#card"
                  position="0 0 0"
                  width="1" height="0.552"
                  material="opacity:0; transparent:true"></a-plane>
 
-        <!-- Slightly smaller phoenix model -->
+        <!-- Model: brought slightly down (y = -0.08) and a bit forward (z = 0.06) -->
         <a-gltf-model
           id="bird"
           src="#model"
           position="0 -0.08 0.06"
           rotation="0 180 0"
-          scale="0.00008 0.00008 0.00008">
+          scale="0.00015 0.00015 0.00015">
         </a-gltf-model>
       </a-entity>
     </a-scene>
 
     <script>
       document.getElementById('bird').addEventListener('model-loaded', () => {
-        console.log('Phoenix model loaded and displayed successfully!');
+        console.log('Model loaded!');
       });
     </script>
   </body>
