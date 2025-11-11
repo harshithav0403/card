@@ -6,27 +6,12 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
     <style>
       html, body { margin:0; height:100%; overflow:hidden; background:#000; }
-      /* raw camera preview sits behind the AR scene until AR gets ready */
-      #preview {
-        position: fixed; inset: 0;
-        width: 100%; height: 100%;
-        object-fit: cover; background:#000;
-        z-index: 0;
-      }
-      a-scene { position: fixed; inset: 0; z-index: 1; }
-      #log {
-        position: fixed; left: 8px; bottom: 8px; color:#cfe7ff;
-        font: 14px system-ui; z-index: 2; background: rgba(0,0,0,.35); padding: 6px 8px; border-radius: 6px;
-      }
+      a-scene { position:fixed; inset:0; }
     </style>
   </head>
   <body>
-    <!-- Raw camera preview to avoid black screen -->
-    <video id="preview" autoplay muted playsinline webkit-playsinline></video>
-    <div id="log">opening camera…</div>
-
     <a-scene
-      mindar-image="imageTargetSrc: targets.mind; uiScanning: true; uiError: true"
+      mindar-image="imageTargetSrc: targets.mind;"
       color-space="sRGB"
       renderer="colorManagement: true; physicallyCorrectLights: false"
       vr-mode-ui="enabled: false"
@@ -54,56 +39,34 @@
           material="transparent:true; opacity:0">
         </a-plane>
 
-        <!-- phoenix model (visible, slightly down & forward) -->
+        <!-- phoenix model with animation -->
         <a-gltf-model
           id="bird"
           src="#model"
           position="0 -0.06 0.08"
           rotation="0 180 0"
-          scale="0.006 0.006 0.006">
+          scale="0.006 0.006 0.006"
+          animation-mixer="clip: *; loop: repeat; timeScale: 1">
         </a-gltf-model>
       </a-entity>
     </a-scene>
 
     <script>
-      const $ = s => document.querySelector(s);
-      const log = m => { $('#log').textContent = m; console.log('[AR]', m); };
+      const bird   = document.getElementById('bird');
+      const scene  = document.querySelector('a-scene');
+      const anchor = document.querySelector('[mindar-image-target]');
 
-      // 1) Open raw camera preview to guarantee permission + working camera
-      async function openPreview() {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { ideal: 'environment' } },
-            audio: false
-          });
-          const v = $('#preview');
-          v.srcObject = stream;
-          await new Promise(r => v.onloadedmetadata = r);
-          v.play().catch(()=>{});
-          log(`camera preview OK (${v.videoWidth}×${v.videoHeight}) — initializing AR…`);
-        } catch (e) {
-          log(`❌ camera failed: ${e.name} ${e.message}`);
-        }
-      }
+      // Logs
+      bird.addEventListener('model-loaded', () => console.log('✅ Model loaded (with animation)'));
+      bird.addEventListener('model-error',  e => console.error('❌ Model error', e));
 
-      openPreview();
-
-      // 2) When AR is ready, hide the raw preview (MindAR will show the feed)
-      const scene = document.querySelector('a-scene');
-      scene.addEventListener('arReady', () => {
-        log('✅ AR ready — point at your target image.');
-        const v = $('#preview');
-        try { v.pause(); v.srcObject && v.srcObject.getTracks().forEach(t => t.stop()); } catch(_) {}
-        v.style.display = 'none';
+      // Start/stop animation with tracking
+      anchor.addEventListener('targetFound', () => {
+        bird.setAttribute('animation-mixer', 'clip: *; loop: repeat; timeScale: 1');
       });
-      scene.addEventListener('arError', e => {
-        log('❌ AR error: ' + (e.detail?.message || 'unknown'));
+      anchor.addEventListener('targetLost', () => {
+        bird.setAttribute('animation-mixer', 'clip: *; loop: repeat; timeScale: 0');
       });
-
-      // Optional: model load logs
-      const bird = document.getElementById('bird');
-      bird.addEventListener('model-loaded', () => log('model loaded ✓'));
-      bird.addEventListener('model-error',  e => log('model error: ' + (e.detail?.src || '')));
     </script>
   </body>
 </html>
