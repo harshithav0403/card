@@ -4,6 +4,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <!-- Add animation-mixer component -->
+    <script src="https://cdn.jsdelivr.net/npm/aframe-extras@6.1.1/dist/aframe-extras.min.js"></script>
     <style>
       html, body { margin:0; height:100%; overflow:hidden; background:#000; }
       a-scene { position:fixed; inset:0; }
@@ -23,15 +25,12 @@
         <a-asset-item id="model" src="./phoenix_bird.glb"></a-asset-item>
       </a-assets>
 
-      <!-- Standard AR camera -->
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <!-- simple lighting -->
       <a-entity light="type: ambient; intensity: 1.0"></a-entity>
       <a-entity light="type: directional; intensity: 0.8" position="0 1 1"></a-entity>
 
       <a-entity mindar-image-target="targetIndex: 0">
-        <!-- invisible alignment plane -->
         <a-plane
           src="#card"
           position="0 0 0"
@@ -39,7 +38,7 @@
           material="transparent:true; opacity:0">
         </a-plane>
 
-        <!-- phoenix model with animation -->
+        <!-- Animated model -->
         <a-gltf-model
           id="bird"
           src="#model"
@@ -53,14 +52,14 @@
 
     <script>
       const bird   = document.getElementById('bird');
-      const scene  = document.querySelector('a-scene');
       const anchor = document.querySelector('[mindar-image-target]');
 
-      // Logs
-      bird.addEventListener('model-loaded', () => console.log('✅ Model loaded (with animation)'));
-      bird.addEventListener('model-error',  e => console.error('❌ Model error', e));
+      bird.addEventListener('model-loaded', () => {
+        const obj = bird.getObject3D('mesh');
+        const clips = (obj && obj.animations) ? obj.animations.map(a => a.name) : [];
+        console.log('✅ Model loaded. Clips:', clips);
+      });
 
-      // Start/stop animation with tracking
       anchor.addEventListener('targetFound', () => {
         bird.setAttribute('animation-mixer', 'clip: *; loop: repeat; timeScale: 1');
       });
